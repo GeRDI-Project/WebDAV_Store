@@ -26,7 +26,7 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
     private static final Logger LOGGER = LoggerFactory
             .getLogger(WebDAVStoreService.class);
 
-    public WebDAVStoreService(){
+    public WebDAVStoreService() {
         super(null);
     }
 
@@ -37,19 +37,19 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
     }
 
     @Override
-    protected boolean isLoggedIn(WebDAVCreds credentials) {
+    protected boolean isLoggedIn(final WebDAVCreds credentials) {
         return credentials != null;
     }
 
     @Override
-    protected WebDAVCreds login(Request request, Response response) {
-        String usr = request.queryParams("username");
-        String domain = request.queryParams("webdavDomain");
-        String pw = request.queryParams("password");
-        Sardine client = SardineFactory.begin(usr, pw);
+    protected WebDAVCreds login(final Request request, final Response response) {
+        final String usr = request.queryParams("username");
+        final String domain = request.queryParams("webdavDomain");
+        final String password = request.queryParams("password");
+        final Sardine client = SardineFactory.begin(usr, password);
         try {
             client.list(domain);
-        } catch (Exception e) {
+        } catch (IOException e) {
             LOGGER.error("Could not connect to WebDAV server.", e);
             response.redirect("/api/v1/store/login/init.html");
             return null;
@@ -60,9 +60,7 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
 
 
     @Override
-    protected boolean copyFile(WebDAVCreds creds, String targetDir, TaskElement taskElement) {
-        final Sardine client = creds.getClient();
-        final String appendedDir = creds.getDomain().concat(targetDir);
+    protected boolean copyFile(final WebDAVCreds creds, final String targetDir, final TaskElement taskElement) {
         final URL url;
         try {
             url = new URL(taskElement.getFileName());
@@ -70,12 +68,23 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
             LOGGER.error("Encountered malformed URL.", e);
             return false;
         }
-        String[] splitFile = url.getFile().split("/");
-        String fileName = splitFile[splitFile.length-1];
+        final String[] splitFile = url.getFile().split("/");
+        final String fileName = splitFile[splitFile.length - 1];
+        final Sardine client = creds.getClient();
+        final String appendedDir = creds.getDomain().concat(targetDir);
         try {
-            if (!client.exists( appendedDir + fileName)) {
-                client.put(appendedDir + fileName, new ResearchDataInputStream(url, taskElement));
-                taskElement.setProgressInPercent(100);
+            if (client.exists(appendedDir + fileName)) { // TODO: new file name with with a suffix
+                taskElement.setProgressInPercent(-2); // File already exists
+            } else {
+                new Thread(() -> {
+                    try {
+                        client.put(appendedDir + fileName, new ResearchDataInputStream(url, taskElement));
+                    } catch (IOException e) {
+                        taskElement.setProgressInPercent(-2);
+                        return;
+                    }
+                    taskElement.setProgressInPercent(100);
+                }).start();
             }
         } catch (IOException e) {
             LOGGER.error("Error while copying files.", e);
@@ -86,7 +95,7 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
     }
 
     @Override
-    protected List<ListElement> listFiles(String directory, WebDAVCreds creds) {
+    protected List<ListElement> listFiles(final String directory, final WebDAVCreds creds) {
         final String appendedDir = creds.getDomain().concat(directory);
         final Sardine client = creds.getClient();
         client.enablePreemptiveAuthentication(creds.getDomain());
@@ -96,7 +105,7 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
         } catch (IOException e) {
             LOGGER.error("Error while retrieving file list.", e);
         }
-        List<ListElement> ret = new ArrayList<>();
+        final List<ListElement> ret = new ArrayList<>();
 
         final URI uri;
         String prefix = "";
@@ -104,15 +113,15 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
             uri = new URI(creds.getDomain());
             prefix = uri.getPath();
         } catch (URISyntaxException e) {
-            e.printStackTrace();
+            LOGGER.error("Error parsing path.", e);
         }
 
-        for(int i = 1; i < elems.size(); i++) { // Skip first... this is the requested directory itself
-            final DavResource it = elems.get(i);
-            final String displayName = it.getDisplayName() != null ? it.getDisplayName() : it.getName();
+        for (int i = 1; i < elems.size(); i++) { // Skip first... this is the requested directory itself
+            final DavResource element = elems.get(i);
+            final String displayName = element.getDisplayName() != null ? element.getDisplayName() : element.getName(); //NOPMD
             ret.add(ListElement.of(displayName,
-                    it.getContentType(),
-                    it.getPath().replace(prefix, "")));
+                    element.getContentType(),
+                    element.getPath().replace(prefix, "")));
         }
         return ret;
     }
