@@ -1,3 +1,18 @@
+/**
+ * Copyright © 2018 Nelson Tavares de Sousa (tavaresdesousa@email.uni-kiel.de)
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package de.gerdiproject.store.impl;
 
 import com.github.sardine.DavResource;
@@ -20,16 +35,23 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-
+/**
+ * This class represents an implementation of a GeRDI store service using WebDAV as a provider.
+ */
 public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
 
     private static final Logger LOGGER = LoggerFactory
             .getLogger(WebDAVStoreService.class);
 
     public WebDAVStoreService() {
-        super(null);
+        super();
     }
 
+    /**
+     * This gets this program goin'
+     *
+     * @param args Command line arguments - not used here
+     */
     public static void main(final String[] args) {
         final WebDAVStoreService service = new WebDAVStoreService();
         service.registerStaticFolder("/static");
@@ -88,7 +110,7 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
             }
         } catch (IOException e) {
             LOGGER.error("Error while copying files.", e);
-            taskElement.setProgressInPercent(-2);
+            taskElement.setProgressInPercent(-2); // Set to -2 as there is an error with this file
             return false;
         }
         return true;
@@ -104,6 +126,7 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
             elems = client.list(appendedDir);
         } catch (IOException e) {
             LOGGER.error("Error while retrieving file list.", e);
+            return null;
         }
         final List<ListElement> ret = new ArrayList<>();
 
@@ -118,10 +141,16 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
 
         for (int i = 1; i < elems.size(); i++) { // Skip first... this is the requested directory itself
             final DavResource element = elems.get(i);
-            final String displayName = element.getDisplayName() != null ? element.getDisplayName() : element.getName(); //NOPMD
-            ret.add(ListElement.of(displayName,
-                    element.getContentType(),
-                    element.getPath().replace(prefix, "")));
+            final String displayName = element.getDisplayName() != null ? element.getDisplayName() : element.getName(); //NOPMD ternary operator makes it easier here
+            if (prefix.equals("")) {
+                ret.add(ListElement.of(displayName,
+                        element.getContentType(),
+                        element.getPath()));
+            } else {
+                ret.add(ListElement.of(displayName,
+                        element.getContentType(),
+                        element.getPath().replace(prefix, "")));
+            }
         }
         return ret;
     }
