@@ -104,7 +104,7 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
             }
         } catch (IOException e) {
             LOGGER.error("Error while copying files.", e);
-            inputStream.setStatus(CopyStatus.ERROR); // Set to -2 as there is an error with this file
+            inputStream.setStatus(CopyStatus.ERROR);
             return false;
         }
         return true;
@@ -136,15 +136,10 @@ public class WebDAVStoreService extends AbstractStoreService<WebDAVCreds> {
         for (int i = 1; i < elems.size(); i++) { // Skip first... this is the requested directory itself
             final DavResource element = elems.get(i);
             final String displayName = element.getDisplayName() != null ? element.getDisplayName() : element.getName(); //NOPMD ternary operator makes it easier here
-            if (prefix.equals("")) {
-                ret.add(ListElement.of(displayName,
-                        element.getContentType(),
-                        element.getPath()));
-            } else {
-                ret.add(ListElement.of(displayName,
-                        element.getContentType(),
-                        element.getPath().replace(prefix, "")));
-            }
+            final String uriPath = prefix.equals("") ? element.getPath() : element.getPath().replace(prefix, ""); //NOPMD ternary operator makes it easier here
+            ret.add(ListElement.of(displayName,
+                    element.getContentType(),
+                    uriPath));
         }
         return ret;
     }
